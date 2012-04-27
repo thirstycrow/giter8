@@ -24,6 +24,7 @@ class Giter8 extends xsbti.AppMain
         inspect("%s/%s.g8".format(user, proj), Some(branch), params)
       case (params, Array(Auth(_), user, pass)) =>
         auth(user, pass)
+      case (_, Array(RemoteTemplates(_))) => discover()
       case _ => Left(usage)
     }) fold ({ error =>
       System.err.println("\n%s\n" format error)
@@ -58,7 +59,8 @@ class Giter8 extends xsbti.AppMain
                 |        Resolves a template within a given branch
                 |    --paramname=paramvalue
                 |        Set given parameter value and bypass interaction.
-                |    
+                |    -l, --ls
+                |        List's all
                 |
                 |Apply template and interactively fulfill parameters.
                 |    g8 n8han/giter8
