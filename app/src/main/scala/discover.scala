@@ -22,7 +22,6 @@ trait Discover { self: Giter8 =>
   import dispatch._
   import dispatch.liftjson.Js._
   import net.liftweb.json.JsonAST._
-  import java.nio.ByteBuffer
 
   case class Template(user: String, name: String, desc: String)
 
