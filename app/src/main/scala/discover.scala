@@ -1,27 +1,10 @@
 package giter8
 
-sealed trait Term {
-  def bold: String => String
-  def reversed: String => String
-  def reset: String => String
-}
-
-object NoTerm extends Term {
-  def bold        = { s => s }
-  def reversed    = { s => s }
-  def reset       = { s => s }
-}
-
-object ClrTerm extends Term {
-  def reversed = Console.REVERSED + _
-  def reset = _ + Console.RESET
-  def bold = Console.BOLD + _
-}
-
 trait Discover { self: Giter8 =>
   import dispatch._
   import dispatch.liftjson.Js._
   import net.liftweb.json.JsonAST._
+  import java.net.UnknownHostException
 
   case class Template(user: String, name: String, desc: String)
 
@@ -29,44 +12,58 @@ trait Discover { self: Giter8 =>
 
   val Limit = 10
 
-  def term: Term = ClrTerm
+  def term: Term = Term.support
 
-  def template(in: String) = (term.bold andThen term.reset)(in)
+  def bold(in: String) = (term.bold andThen term.reset)(in)
 
-  def description(in: String) = in
+  def reversed(in: String) = (term.reversed andThen term.reset)(in)
 
-  def pager(q: Option[String], page: Int, more: Boolean): Unit =
+  def clear = println(term.clear)
+
+  def pager(user: Option[String],
+            name: Option[String],
+            page: Int,
+            more: Boolean): Unit =
     Console.readLine(
       if(more) ":"
-      else (term.reversed andThen term.reset)("(END)")) match {
+      else reversed("(END)")) match {
       case "b" | "B" | "u" | "U" if(page > 0) =>
-        discover(q, page - 1)
+        clear
+        discover(user, name, page - 1)
       case _ if(more) =>
-        discover(q, page + 1)
+        clear
+        discover(user, name, page + 1)
       case _  => ()
     }
 
   def show(ps: Seq[Template], more: Boolean) =
     ps.map { t =>
-      (template(t.user +"/"+ t.name)
+      (bold(t.user +"/"+ t.name)
         + " \n\t "
-        + description(if(t.desc.isEmpty) "-" else t.desc))
+        + (if (t.desc.isEmpty) "-" else t.desc))
     } mkString(" ", "\n ","")
 
-  def discover(query: Option[String] = None, page: Int = 0) =
-    remoteTemplates(query, page).right.flatMap { templates =>
+  def discover(user: Option[String] = None,
+               name: Option[String] = None,
+               page: Int = 1) =
+    remoteTemplates(user, name, page).right.flatMap { templates =>
       templates match {
         case Nil =>
-          Right("No templates matching %s" format query)
+          Right("No templates matching %s/%s" format(user.getOrElse("*"),
+                                                     name.getOrElse("*")))
+        case template :: Nil =>
+          println(show(templates, false))
+          pager(user, name, page, false)
+          Right("")
         case templates =>
           println(show(templates.init, templates.size > Limit))
-          pager(query, page, templates.size > Limit)
+          pager(user, name, page, templates.size > Limit)
           Right("")
       }
     }
   
-  def remoteTemplates(query: Option[String], page: Int = 0) =
-    http x (ls(query, page) ># { j => j }) {
+  def remoteTemplates(user: Option[String], name: Option[String], page: Int = 0) =
+    try { http x (ls(user, name, page) ># { j => j }) {
       case (200, _, _, js) =>
         Right(for {
           JArray(repos) <- js()
@@ -76,10 +73,24 @@ trait Discover { self: Giter8 =>
           JField("description", JString(desc)) <- fields
         } yield Template(userName, name, desc))
       case (404, _, _, _) =>
-        Left("Unable to find github repositories like : %s" format query)
+        Left("Unable to find templates like : %s/%s" format(user.getOrElse("*"),
+                                                            name.getOrElse("*")))
+    } } catch {
+      case e: UnknownHostException =>
+        Left("Failed to resolve ls host %s" format e.getMessage)
     }
 
-  def ls(query: Option[String], page: Int = 0) = :/("ls.implicit.ly") / "api" / "1" / "g8" <<? Map(
-    "page" -> page.toString, "limit" -> (Limit + 1).toString
-  ) ++ query.map("query" -> _)
+  def api = :/("ls.implicit.ly") / "api" / "1" / "g8"
+
+  def ls(user: Option[String], name: Option[String], page: Int = 0) =
+    (user, name) match {
+      case (None, None) =>
+        api <<? Map(
+          "page" -> page.toString, "limit" -> (Limit + 1).toString
+        )
+      case _ =>
+        api / user.getOrElse("*") / name.getOrElse("*") <<? Map(
+          "page" -> page.toString, "limit" -> (Limit + 1).toString
+        )
+    }
 }

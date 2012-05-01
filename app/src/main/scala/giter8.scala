@@ -6,7 +6,7 @@ class Giter8 extends xsbti.AppMain
 
   val Repo = """^(\S+)/(\S+?)(?:\.g8)?$""".r
   val Branch = """^-(b|-branch)$""".r
-  val RemoteTemplates = """^-(l|-list)$""".r
+  val RemoteTemplates = """^-(l|-ls)$""".r
   val Auth = """^-(a|-auth)$""".r
 
   java.util.logging.Logger.getLogger("").setLevel(java.util.logging.Level.SEVERE)
@@ -22,7 +22,6 @@ class Giter8 extends xsbti.AppMain
         inspect("%s/%s.g8".format(user, proj), None, params)
       case (params, Array(Repo(user, proj), Branch(_), branch)) =>
         inspect("%s/%s.g8".format(user, proj), Some(branch), params)
-
       case (params, Array(Auth(param), userpass)) =>
         userpass.split(":", 2) match {
           case Array(user, pass) => auth(user, pass)
@@ -30,7 +29,10 @@ class Giter8 extends xsbti.AppMain
             Left("-%s requires username and password separated by `:`".format(
               param))
         }
-      case (_, Array(RemoteTemplates(_))) => discover()
+      case (_, Array(RemoteTemplates(_))) =>
+        discover()
+      case (_, Array(RemoteTemplates(_), Repo(user, proj))) =>
+        discover(Some(user), Some(proj))
       case _ => Left(usage)
     }) fold ({ error =>
       System.err.println("\n%s\n" format error)
@@ -66,7 +68,10 @@ class Giter8 extends xsbti.AppMain
                 |    --paramname=paramvalue
                 |        Set given parameter value and bypass interaction.
                 |    -l, --ls
-                |        List's all
+                |        List's all available templates
+                |    -p, --publish
+                |        Publishes template for others to find with --ls flag
+                |        
                 |
                 |Apply template and interactively fulfill parameters.
                 |    g8 n8han/giter8
@@ -79,6 +84,19 @@ class Giter8 extends xsbti.AppMain
                 |
                 |Acquire Github authorization
                 |    g8 -a login:password
+                |
+                |Lists published templates
+                |    g8 -l
+                |
+                |List any users template containing the name unfiltered
+                |    g8 -l */unfiltered
+                |
+                |List all of xuwei-k's templates
+                |    g8 -l xuwei-k
+                |
+                |Publish your template
+                |    g8 -p gh-username/repo-name.g8
+                |
                 |""".stripMargin format (BuildInfo.version)
 
 }
