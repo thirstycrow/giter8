@@ -22,8 +22,14 @@ class Giter8 extends xsbti.AppMain
         inspect("%s/%s.g8".format(user, proj), None, params)
       case (params, Array(Repo(user, proj), Branch(_), branch)) =>
         inspect("%s/%s.g8".format(user, proj), Some(branch), params)
-      case (params, Array(Auth(_), user, pass)) =>
-        auth(user, pass)
+
+      case (params, Array(Auth(param), userpass)) =>
+        userpass.split(":", 2) match {
+          case Array(user, pass) => auth(user, pass)
+          case _ =>
+            Left("-%s requires username and password separated by `:`".format(
+              param))
+        }
       case (_, Array(RemoteTemplates(_))) => discover()
       case _ => Left(usage)
     }) fold ({ error =>
@@ -53,7 +59,7 @@ class Giter8 extends xsbti.AppMain
                 |Apply specified template.
                 |
                 |OPTIONS
-                |    -a, --auth
+                |    -a, --auth <login>:<password>
                 |        Authorizes oauth access to Github
                 |    -b, --branch
                 |        Resolves a template within a given branch
@@ -72,7 +78,7 @@ class Giter8 extends xsbti.AppMain
                 |    g8 n8han/giter8 --name=template-test
                 |
                 |Acquire Github authorization
-                |    g8 -a login password
+                |    g8 -a login:password
                 |""".stripMargin format (BuildInfo.version)
 
 }
