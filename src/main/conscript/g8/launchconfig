@@ -1,5 +1,5 @@
 [app]
-  version: 0.6.5
+  version: 0.6.5-xueqiu
   org: net.databinder.giter8
   name: giter8
   class: giter8.Giter8
@@ -7,5 +7,6 @@
   version: 2.10.2
 [repositories]
   local
+  snowball: http://repo.snowballfinance.com/nexus/content/groups/public/
   maven-central
   sonatype-releases: https://oss.sonatype.org/content/repositories/releases/
